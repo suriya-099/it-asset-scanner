@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>
+    IT Asset Barcode Scanner
+  </title>
+
+
+  <script
+    src="https://unpkg.com/html5-qrcode"
+    type="text/javascript">
+  </script>
+
+
+  <style>
+
+    body {
+
+      font-family:
+        Arial,
+        sans-serif;
+
+      margin: 0;
+
+      background: #f3f4f6;
+
+      color: #111827;
+
+    }
+
+
+    .header {
+
+      background: #1f2937;
+
+      color: white;
+
+      padding: 16px;
+
+      font-size: 20px;
+
+      font-weight: bold;
+
+    }
+
+
+    .container {
+
+      max-width: 500px;
+
+      margin: auto;
+
+      padding: 20px;
+
+    }
+
+
+    .card {
+
+      background: white;
+
+      padding: 20px;
+
+      border-radius: 12px;
+
+      box-shadow:
+        0 2px 10px
+        rgba(0,0,0,.08);
+
+    }
+
+
+    #reader {
+
+      width: 100%;
+
+      margin-top: 15px;
+
+    }
+
+
+    #result {
+
+      margin-top: 15px;
+
+      padding: 12px;
+
+      background: #f3f4f6;
+
+      border-radius: 8px;
+
+      word-break: break-word;
+
+    }
+
+
+    button {
+
+      width: 100%;
+
+      margin-top: 15px;
+
+      padding: 12px;
+
+      border: none;
+
+      border-radius: 8px;
+
+      background: #374151;
+
+      color: white;
+
+      font-weight: bold;
+
+    }
+
+
+    .success {
+
+      color: green;
+
+      font-weight: bold;
+
+    }
+
+
+    .error {
+
+      color: red;
+
+      font-weight: bold;
+
+    }
+
+  </style>
+
+</head>
+
+
+<body>
+
+
+<div class="header">
+
+  📷 IT Asset Barcode Scanner
+
+</div>
+
+
+<div class="container">
+
+
+  <div class="card">
+
+
+    <p>
+
+      Arahkan kamera ke barcode
+      Asset Tag.
+
+    </p>
+
+
+    <div id="reader"></div>
+
+
+    <div id="result">
+
+      Mengaktifkan kamera...
+
+    </div>
+
+
+    <button
+      onclick="goBack()">
+
+      ← Kembali
+
+    </button>
+
+
+  </div>
+
+
+</div>
+
+
+<script>
+
+
+let scanner = null;
+
+let alreadyScanned = false;
+
+
+// ========================================
+// GET RETURN URL
+// ========================================
+
+function getReturnUrl() {
+
+  const params =
+    new URLSearchParams(
+      window.location.search
+    );
+
+
+  return params.get(
+    "return"
+  );
+
+}
+
+
+// ========================================
+// GET MODE
+// ========================================
+
+function getMode() {
+
+  const params =
+    new URLSearchParams(
+      window.location.search
+    );
+
+
+  return params.get(
+    "mode"
+  ) || "";
+
+}
+
+
+// ========================================
+// CHECK RETURN URL
+// ========================================
+
+function isAllowedReturnUrl(url) {
+
+  try {
+
+    const parsed =
+      new URL(url);
+
+
+    return (
+
+      parsed.protocol ===
+        "https:" &&
+
+      (
+
+        parsed.hostname ===
+          "script.google.com" ||
+
+        parsed.hostname ===
+          "script.googleusercontent.com"
+
+      )
+
+    );
+
+  }
+
+  catch (error) {
+
+    return false;
+
+  }
+
+}
+
+
+// ========================================
+// RETURN TO APPS SCRIPT
+// ========================================
+
+function returnToApp(
+  barcode
+) {
+
+  const returnUrl =
+    getReturnUrl();
+
+
+  const mode =
+    getMode();
+
+
+  if (!returnUrl) {
+
+    document.getElementById(
+      "result"
+    ).innerHTML =
+
+      '<span class="error">' +
+      'Return URL tidak ditemukan.' +
+      '</span>';
+
+    return;
+
+  }
+
+
+  if (
+    !isAllowedReturnUrl(
+      returnUrl
+    )
+  ) {
+
+    document.getElementById(
+      "result"
+    ).innerHTML =
+
+      '<span class="error">' +
+      'Return URL tidak diizinkan.' +
+      '</span>';
+
+    return;
+
+  }
+
+
+  try {
+
+    const url =
+      new URL(
+        returnUrl
+      );
+
+
+    url.searchParams.set(
+      "barcode",
+      barcode
+    );
+
+
+    if (mode) {
+
+      url.searchParams.set(
+        "mode",
+        mode
+      );
+
+    }
+
+
+    window.location.replace(
+      url.toString()
+    );
+
+  }
+
+  catch (error) {
+
+    document.getElementById(
+      "result"
+    ).innerHTML =
+
+      '<span class="error">' +
+      'Gagal kembali ke aplikasi.' +
+      '</span>';
+
+  }
+
+}
+
+
+// ========================================
+// START CAMERA
+// ========================================
+
+function startScanner() {
+
+  scanner =
+    new Html5Qrcode(
+      "reader"
+    );
+
+
+  const config = {
+
+    fps: 10,
+
+    qrbox: {
+
+      width: 280,
+
+      height: 140
+
+    }
+
+  };
+
+
+  scanner.start(
+
+    {
+      facingMode: {
+        ideal: "environment"
+      }
+    },
+
+
+    config,
+
+
+    function(decodedText) {
+
+      if (
+        alreadyScanned
+      ) {
+
+        return;
+
+      }
+
+
+      alreadyScanned =
+        true;
+
+
+      document.getElementById(
+        "result"
+      ).innerHTML =
+
+        '<span class="success">' +
+        '✓ Barcode terbaca: ' +
+        escapeHtml(
+          decodedText
+        ) +
+        '</span>';
+
+
+      scanner.stop()
+
+        .then(
+          function() {
+
+            scanner.clear();
+
+            returnToApp(
+              decodedText
+            );
+
+          }
+        )
+
+        .catch(
+          function() {
+
+            returnToApp(
+              decodedText
+            );
+
+          }
+        );
+
+    },
+
+
+    function(errorMessage) {
+
+      // Tidak perlu menampilkan
+      // error scan terus-menerus
+
+    }
+
+  )
+
+
+  .catch(
+    function(error) {
+
+      document.getElementById(
+        "result"
+      ).innerHTML =
+
+        '<span class="error">' +
+
+        'Kamera tidak dapat dibuka: ' +
+
+        escapeHtml(
+          error
+        ) +
+
+        '</span>';
+
+    }
+  );
+
+}
+
+
+// ========================================
+// GO BACK
+// ========================================
+
+function goBack() {
+
+  const returnUrl =
+    getReturnUrl();
+
+
+  if (
+    returnUrl &&
+    isAllowedReturnUrl(
+      returnUrl
+    )
+  ) {
+
+    window.location.replace(
+      returnUrl
+    );
+
+  }
+
+  else {
+
+    window.history.back();
+
+  }
+
+}
+
+
+// ========================================
+// ESCAPE HTML
+// ========================================
+
+function escapeHtml(
+  value
+) {
+
+  return String(
+    value ?? ""
+  )
+
+    .replace(
+      /&/g,
+      "&amp;"
+    )
+
+    .replace(
+      /</g,
+      "&lt;"
+    )
+
+    .replace(
+      />/g,
+      "&gt;"
+    )
+
+    .replace(
+      /"/g,
+      "&quot;"
+    )
+
+    .replace(
+      /'/g,
+      "&#039;"
+    );
+
+}
+
+
+// ========================================
+// START
+// ========================================
+
+window.onload =
+  function() {
+
+    startScanner();
+
+  };
+
+</script>
+
+
+</body>
+
+</html>
