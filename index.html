@@ -537,27 +537,43 @@ function createScanner(
       // KIRIM KE TAB APPS SCRIPT
       // =================================
 
-      if (
-        window.opener
-      ) {
+     if (window.opener && !window.opener.closed) {
 
-        window.opener.postMessage(
+  // Kirim barcode ke halaman Apps Script
+  window.opener.postMessage(
 
-          {
-            type:
-              "ASSET_BARCODE",
+    {
+      type: "ASSET_BARCODE",
+      barcode: decodedText,
+      mode: mode
+    },
 
-            barcode:
-              decodedText,
+    "*"
+  );
 
-            mode:
-              mode
 
-          },
+  // Tutup tab scanner setelah barcode dikirim
+  setTimeout(function() {
 
-          "https://script.google.com"
+    window.close();
 
-        );
+  }, 500);
+
+
+}
+else {
+
+  document.getElementById(
+    "result"
+  ).innerHTML =
+
+    '<span class="error">' +
+    'Halaman aplikasi utama tidak ditemukan.' +
+    '<br>' +
+    'Silakan buka scanner dari tombol 📷 Scan pada aplikasi Inventory.' +
+    '</span>';
+
+}
 
 
         // Tutup tab scanner
