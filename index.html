@@ -9,9 +9,7 @@
     name="viewport"
     content="width=device-width, initial-scale=1.0">
 
-  <title>
-    IT Asset Barcode Scanner
-  </title>
+  <title>IT Asset Barcode Scanner</title>
 
   <script
     src="https://unpkg.com/html5-qrcode"
@@ -25,11 +23,10 @@
       box-sizing: border-box;
     }
 
+
     body {
 
-      font-family:
-        Arial,
-        sans-serif;
+      font-family: Arial, sans-serif;
 
       margin: 0;
 
@@ -87,6 +84,10 @@
 
       margin-top: 15px;
 
+      overflow: hidden;
+
+      border-radius: 8px;
+
     }
 
 
@@ -101,6 +102,8 @@
       border-radius: 8px;
 
       word-break: break-word;
+
+      line-height: 1.5;
 
     }
 
@@ -117,6 +120,10 @@
         1px solid #ccc;
 
       border-radius: 6px;
+
+      background: white;
+
+      font-size: 14px;
 
     }
 
@@ -141,6 +148,15 @@
 
       cursor: pointer;
 
+      font-size: 14px;
+
+    }
+
+
+    button:active {
+
+      transform: scale(.99);
+
     }
 
 
@@ -158,6 +174,13 @@
       color: red;
 
       font-weight: bold;
+
+    }
+
+
+    .info {
+
+      color: #555;
 
     }
 
@@ -192,7 +215,7 @@
 
     <select id="cameraList">
 
-      <option>
+      <option value="">
         Mendeteksi kamera...
       </option>
 
@@ -209,7 +232,9 @@
     </div>
 
 
-    <button onclick="goBack()">
+    <button
+      type="button"
+      onclick="goBack()">
 
       ← Kembali
 
@@ -225,14 +250,20 @@
 <script>
 
 
+// =====================================================
+// GLOBAL
+// =====================================================
+
 let scanner = null;
 
 let alreadyScanned = false;
 
+let currentCameraId = null;
 
-// =======================================
+
+// =====================================================
 // GET MODE
-// =======================================
+// =====================================================
 
 function getMode() {
 
@@ -249,15 +280,341 @@ function getMode() {
 }
 
 
-// =======================================
-// LOAD CAMERAS
-// =======================================
+// =====================================================
+// GET RETURN URL
+// =====================================================
 
-function loadCameras() {
+function getReturnUrl() {
+
+  const params =
+    new URLSearchParams(
+      window.location.search
+    );
+
+  return params.get("return");
+
+}
+
+
+// =====================================================
+// VALIDATE RETURN URL
+// =====================================================
+
+function isAllowedReturnUrl(url) {
+
+  if (!url) {
+
+    return false;
+
+  }
+
+
+  try {
+
+    const parsed =
+      new URL(url);
+
+
+    // Hanya izinkan HTTPS
+    if (
+      parsed.protocol !==
+      "https:"
+    ) {
+
+      return false;
+
+    }
+
+
+    // Apps Script Web App
+    if (
+      parsed.hostname ===
+      "script.google.com"
+    ) {
+
+      return true;
+
+    }
+
+
+    // Apps Script alternate domain
+    if (
+      parsed.hostname ===
+      "script.googleusercontent.com"
+    ) {
+
+      return true;
+
+    }
+
+
+    return false;
+
+  }
+
+  catch (error) {
+
+    return false;
+
+  }
+
+}
+
+
+// =====================================================
+// ESCAPE HTML
+// =====================================================
+
+function escapeHtml(value) {
+
+  return String(
+    value ?? ""
+  )
+
+    .replace(
+      /&/g,
+      "&amp;"
+    )
+
+    .replace(
+      /</g,
+      "&lt;"
+    )
+
+    .replace(
+      />/g,
+      "&gt;"
+    )
+
+    .replace(
+      /"/g,
+      "&quot;"
+    )
+
+    .replace(
+      /'/g,
+      "&#039;"
+    );
+
+}
+
+
+// =====================================================
+// SEND BARCODE TO APPS SCRIPT
+// =====================================================
+
+function sendBarcodeToParent(
+  barcode
+) {
+
+  const mode =
+    getMode();
+
+
+  // ===============================================
+  // METHOD 1
+  // window.opener
+  // ===============================================
+
+  if (
+    window.opener &&
+    !window.opener.closed
+  ) {
+
+    try {
+
+      window.opener.postMessage(
+
+        {
+          type:
+            "ASSET_BARCODE",
+
+          barcode:
+            barcode,
+
+          mode:
+            mode
+
+        },
+
+        "*"
+
+      );
+
+
+      document.getElementById(
+        "result"
+      ).innerHTML =
+
+        '<span class="success">' +
+
+        '✓ Barcode terbaca: ' +
+
+        escapeHtml(
+          barcode
+        ) +
+
+        '<br>✓ Barcode dikirim ke aplikasi.'
+
+        + '</span>';
+
+
+      // Stop kamera
+      stopScanner();
+
+
+      // Tutup scanner
+      setTimeout(
+        function() {
+
+          window.close();
+
+        },
+        800
+      );
+
+
+      return true;
+
+    }
+
+    catch (error) {
+
+      console.log(
+        "postMessage error:",
+        error
+      );
+
+    }
+
+  }
+
+
+  // ===============================================
+  // METHOD 2
+  // FALLBACK RETURN URL
+  // ===============================================
+
+  const returnUrl =
+    getReturnUrl();
+
+
+  if (
+    returnUrl &&
+    isAllowedReturnUrl(
+      returnUrl
+    )
+  ) {
+
+    try {
+
+      const url =
+        new URL(
+          returnUrl
+        );
+
+
+      url.searchParams.set(
+        "barcode",
+        barcode
+      );
+
+
+      url.searchParams.set(
+        "mode",
+        mode
+      );
+
+
+      document.getElementById(
+        "result"
+      ).innerHTML =
+
+        '<span class="success">' +
+
+        '✓ Barcode terbaca: ' +
+
+        escapeHtml(
+          barcode
+        ) +
+
+        '<br>✓ Kembali ke aplikasi...'
+
+        + '</span>';
+
+
+      stopScanner();
+
+
+      setTimeout(
+        function() {
+
+          window.location.replace(
+            url.toString()
+          );
+
+        },
+        500
+      );
+
+
+      return true;
+
+    }
+
+    catch (error) {
+
+      console.log(
+        "Return URL error:",
+        error
+      );
+
+    }
+
+  }
+
+
+  // ===============================================
+  // FAILED
+  // ===============================================
 
   document.getElementById(
     "result"
-  ).innerText =
+  ).innerHTML =
+
+    '<span class="error">' +
+
+    '❌ Barcode berhasil dibaca, tetapi ' +
+
+    'halaman aplikasi utama tidak ditemukan.' +
+
+    '<br><br>' +
+
+    'Silakan buka scanner melalui tombol ' +
+
+    '📷 Scan pada aplikasi IT Asset Inventory.'
+
+    + '</span>';
+
+
+  return false;
+
+}
+
+
+// =====================================================
+// LOAD CAMERAS
+// =====================================================
+
+function loadCameras() {
+
+  const result =
+    document.getElementById(
+      "result"
+    );
+
+
+  result.innerText =
     "Meminta izin kamera...";
 
 
@@ -275,26 +632,31 @@ function loadCameras() {
         cameraList.innerHTML = "";
 
 
+        // ============================================
+        // NO CAMERA
+        // ============================================
+
         if (
           !cameras ||
           cameras.length === 0
         ) {
 
-          document.getElementById(
-            "result"
-          ).innerHTML =
+          result.innerHTML =
+
             '<span class="error">' +
-            'Tidak ada kamera yang terdeteksi.' +
-            '</span>';
+
+            '❌ Tidak ada kamera yang terdeteksi.'
+
+            + '</span>';
 
           return;
 
         }
 
 
-        // ==============================
-        // LIST KAMERA
-        // ==============================
+        // ============================================
+        // CAMERA LIST
+        // ============================================
 
         cameras.forEach(
           function(
@@ -313,7 +675,9 @@ function loadCameras() {
 
 
             option.textContent =
+
               camera.label ||
+
               "Camera " +
               (index + 1);
 
@@ -326,18 +690,17 @@ function loadCameras() {
         );
 
 
-        // ==============================
-        // PILIH KAMERA BELAKANG
-        // ==============================
+        // ============================================
+        // FIND BACK CAMERA
+        // ============================================
 
         let selectedCamera =
           cameras.find(
             function(camera) {
 
               const label =
-                (
-                  camera.label ||
-                  ""
+                String(
+                  camera.label || ""
                 ).toLowerCase();
 
 
@@ -352,6 +715,10 @@ function loadCameras() {
                 ) ||
 
                 label.includes(
+                  "environment"
+                ) ||
+
+                label.includes(
                   "belakang"
                 )
 
@@ -361,8 +728,13 @@ function loadCameras() {
           );
 
 
-        // Kalau tidak ditemukan
-        if (!selectedCamera) {
+        // ============================================
+        // DEFAULT CAMERA
+        // ============================================
+
+        if (
+          !selectedCamera
+        ) {
 
           selectedCamera =
             cameras.length > 1
@@ -374,9 +746,17 @@ function loadCameras() {
         }
 
 
+        currentCameraId =
+          selectedCamera.id;
+
+
         cameraList.value =
           selectedCamera.id;
 
+
+        // ============================================
+        // START SCANNER
+        // ============================================
 
         startScanner(
           selectedCamera.id
@@ -385,16 +765,20 @@ function loadCameras() {
       }
     )
 
+
     .catch(
       function(error) {
 
-        document.getElementById(
-          "result"
-        ).innerHTML =
+        result.innerHTML =
 
           '<span class="error">' +
-          'Tidak dapat mengakses kamera: ' +
-          escapeHtml(error) +
+
+          '❌ Tidak dapat mengakses kamera: ' +
+
+          escapeHtml(
+            error
+          ) +
+
           '</span>';
 
       }
@@ -403,9 +787,9 @@ function loadCameras() {
 }
 
 
-// =======================================
+// =====================================================
 // START SCANNER
-// =======================================
+// =====================================================
 
 function startScanner(
   cameraId
@@ -413,14 +797,26 @@ function startScanner(
 
   if (!cameraId) {
 
+    document.getElementById(
+      "result"
+    ).innerHTML =
+
+      '<span class="error">' +
+
+      'Camera ID tidak ditemukan.'
+
+      + '</span>';
+
     return;
 
   }
 
 
+  // Jika scanner lama masih ada
   if (scanner) {
 
     scanner.stop()
+
       .then(
         function() {
 
@@ -432,6 +828,7 @@ function startScanner(
 
         }
       )
+
       .catch(
         function() {
 
@@ -455,9 +852,9 @@ function startScanner(
 }
 
 
-// =======================================
+// =====================================================
 // CREATE SCANNER
-// =======================================
+// =====================================================
 
 function createScanner(
   cameraId
@@ -502,6 +899,10 @@ function createScanner(
     config,
 
 
+    // ==============================================
+    // SUCCESS
+    // ==============================================
+
     function(decodedText) {
 
       if (
@@ -517,98 +918,31 @@ function createScanner(
         true;
 
 
-      const mode =
-        getMode();
+      console.log(
+        "Barcode:",
+        decodedText
+      );
 
 
-      document.getElementById(
-        "result"
-      ).innerHTML =
-
-        '<span class="success">' +
-        '✓ Barcode terbaca: ' +
-        escapeHtml(
-          decodedText
-        ) +
-        '</span>';
-
-
-      // =================================
-      // KIRIM KE TAB APPS SCRIPT
-      // =================================
-
-     if (window.opener && !window.opener.closed) {
-
-  // Kirim barcode ke halaman Apps Script
-  window.opener.postMessage(
-
-    {
-      type: "ASSET_BARCODE",
-      barcode: decodedText,
-      mode: mode
-    },
-
-    "*"
-  );
-
-
-  // Tutup tab scanner setelah barcode dikirim
-  setTimeout(function() {
-
-    window.close();
-
-  }, 500);
-
-
-}
-else {
-
-  document.getElementById(
-    "result"
-  ).innerHTML =
-
-    '<span class="error">' +
-    'Halaman aplikasi utama tidak ditemukan.' +
-    '<br>' +
-    'Silakan buka scanner dari tombol 📷 Scan pada aplikasi Inventory.' +
-    '</span>';
-
-}
-
-
-        // Tutup tab scanner
-        setTimeout(
-          function() {
-
-            window.close();
-
-          },
-          500
-        );
-
-      }
-
-      else {
-
-        document.getElementById(
-          "result"
-        ).innerHTML +=
-
-          '<br><br>' +
-          'Tab aplikasi tidak ditemukan.';
-
-      }
+      sendBarcodeToParent(
+        decodedText
+      );
 
     },
 
+
+    // ==============================================
+    // SCAN ERROR
+    // ==============================================
 
     function(errorMessage) {
 
-      // Abaikan error scanning biasa
+      // Jangan tampilkan error scan biasa
 
     }
 
   )
+
 
   .catch(
     function(error) {
@@ -618,8 +952,13 @@ else {
       ).innerHTML =
 
         '<span class="error">' +
-        'Gagal menjalankan kamera: ' +
-        escapeHtml(error) +
+
+        '❌ Gagal menjalankan kamera: ' +
+
+        escapeHtml(
+          error
+        ) +
+
         '</span>';
 
     }
@@ -628,9 +967,59 @@ else {
 }
 
 
-// =======================================
+// =====================================================
+// STOP SCANNER
+// =====================================================
+
+function stopScanner() {
+
+  if (!scanner) {
+
+    return;
+
+  }
+
+
+  try {
+
+    scanner.stop()
+
+      .then(
+        function() {
+
+          scanner.clear();
+
+        }
+      )
+
+      .catch(
+        function(error) {
+
+          console.log(
+            "Stop scanner:",
+            error
+          );
+
+        }
+      );
+
+  }
+
+  catch (error) {
+
+    console.log(
+      "Stop scanner error:",
+      error
+    );
+
+  }
+
+}
+
+
+// =====================================================
 // CAMERA CHANGE
-// =======================================
+// =====================================================
 
 document
   .getElementById(
@@ -640,80 +1029,64 @@ document
     "change",
     function() {
 
+      currentCameraId =
+        this.value;
+
+
       startScanner(
-        this.value
+        currentCameraId
       );
 
     }
   );
 
 
-// =======================================
+// =====================================================
 // BACK
-// =======================================
+// =====================================================
 
 function goBack() {
 
   if (
-    window.opener
+    window.opener &&
+    !window.opener.closed
   ) {
 
     window.close();
 
-  }
-
-  else {
-
-    window.history.back();
+    return;
 
   }
 
-}
+
+  const returnUrl =
+    getReturnUrl();
 
 
-// =======================================
-// ESCAPE HTML
-// =======================================
-
-function escapeHtml(
-  value
-) {
-
-  return String(
-    value ?? ""
-  )
-
-    .replace(
-      /&/g,
-      "&amp;"
+  if (
+    returnUrl &&
+    isAllowedReturnUrl(
+      returnUrl
     )
+  ) {
 
-    .replace(
-      /</g,
-      "&lt;"
-    )
-
-    .replace(
-      />/g,
-      "&gt;"
-    )
-
-    .replace(
-      /"/g,
-      "&quot;"
-    )
-
-    .replace(
-      /'/g,
-      "&#039;"
+    window.location.replace(
+      returnUrl
     );
 
+    return;
+
+  }
+
+
+  window.history.back();
+
 }
 
 
-// =======================================
-// START
-// =======================================
+// =====================================================
+// START APPLICATION
+// =====================================================
 
 window.onload =
   function() {
@@ -721,6 +1094,7 @@ window.onload =
     loadCameras();
 
   };
+
 
 </script>
 
