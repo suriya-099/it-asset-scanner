@@ -7,204 +7,125 @@
 
   <meta
     name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  >
+    content="width=device-width, initial-scale=1.0">
 
-  <title>
-    IT Asset Barcode Scanner
-  </title>
-
+  <title>IT Asset Barcode Scanner</title>
 
   <script
     src="https://unpkg.com/html5-qrcode"
     type="text/javascript">
   </script>
 
-
   <style>
 
-    body {
-
-      font-family:
-        Arial,
-        sans-serif;
-
-      margin: 0;
-
-      background: #f3f4f6;
-
-      color: #111827;
-
+    * {
+      box-sizing: border-box;
     }
 
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f3f4f6;
+      color: #111827;
+    }
 
     .header {
-
       background: #1f2937;
-
       color: white;
-
-      padding: 16px;
-
+      padding: 16px 20px;
       font-size: 20px;
-
       font-weight: bold;
-
     }
-
 
     .container {
-
       max-width: 500px;
-
       margin: auto;
-
       padding: 20px;
-
     }
-
 
     .card {
-
       background: white;
-
       padding: 20px;
-
       border-radius: 12px;
-
-      box-shadow:
-        0 2px 10px
-        rgba(0,0,0,.08);
-
+      box-shadow: 0 2px 10px rgba(0,0,0,.08);
     }
-
 
     #reader {
-
       width: 100%;
-
       margin-top: 15px;
-
     }
-
 
     #result {
-
       margin-top: 15px;
-
       padding: 12px;
-
       background: #f3f4f6;
-
       border-radius: 8px;
-
       word-break: break-word;
-
     }
-
 
     button {
-
       width: 100%;
-
       margin-top: 15px;
-
       padding: 12px;
-
       border: none;
-
       border-radius: 8px;
-
       background: #374151;
-
       color: white;
-
       font-weight: bold;
-
+      cursor: pointer;
     }
-
 
     .success {
-
       color: green;
-
       font-weight: bold;
-
     }
 
-
     .error {
-
       color: red;
-
       font-weight: bold;
-
     }
 
   </style>
 
 </head>
 
-
 <body>
 
-
 <div class="header">
-
   📷 IT Asset Barcode Scanner
-
 </div>
-
 
 <div class="container">
 
-
   <div class="card">
 
-
     <p>
-
-      Arahkan kamera ke barcode
-      Asset Tag.
-
+      Arahkan kamera ke barcode Asset Tag.
     </p>
-
 
     <div id="reader"></div>
 
-
     <div id="result">
-
       Mengaktifkan kamera...
-
     </div>
 
-
-    <button
-      onclick="goBack()">
-
+    <button onclick="goBack()">
       ← Kembali
-
     </button>
-
 
   </div>
 
-
 </div>
-
 
 <script>
 
-
 let scanner = null;
-
 let alreadyScanned = false;
 
 
-// ========================================
-// GET RETURN URL
-// ========================================
+// ======================================
+// AMBIL RETURN URL
+// ======================================
 
 function getReturnUrl() {
 
@@ -213,17 +134,13 @@ function getReturnUrl() {
       window.location.search
     );
 
-
-  return params.get(
-    "return"
-  );
-
+  return params.get("return");
 }
 
 
-// ========================================
-// GET MODE
-// ========================================
+// ======================================
+// MODE
+// ======================================
 
 function getMode() {
 
@@ -232,17 +149,14 @@ function getMode() {
       window.location.search
     );
 
-
-  return params.get(
-    "mode"
-  ) || "";
+  return params.get("mode") || "";
 
 }
 
 
-// ========================================
-// CHECK RETURN URL
-// ========================================
+// ======================================
+// VALIDASI RETURN URL
+// ======================================
 
 function isAllowedReturnUrl(url) {
 
@@ -251,27 +165,15 @@ function isAllowedReturnUrl(url) {
     const parsed =
       new URL(url);
 
-
     return (
-
-      parsed.protocol ===
-        "https:" &&
-
+      parsed.protocol === "https:" &&
       (
-
-        parsed.hostname ===
-          "script.google.com" ||
-
-        parsed.hostname ===
-          "script.googleusercontent.com"
-
+        parsed.hostname === "script.google.com" ||
+        parsed.hostname === "script.googleusercontent.com"
       )
-
     );
 
-  }
-
-  catch (error) {
+  } catch (error) {
 
     return false;
 
@@ -280,28 +182,21 @@ function isAllowedReturnUrl(url) {
 }
 
 
-// ========================================
-// RETURN TO APPS SCRIPT
-// ========================================
+// ======================================
+// KEMBALI KE APPS SCRIPT
+// ======================================
 
-function returnToApp(
-  barcode
-) {
+function returnToApp(barcode) {
 
   const returnUrl =
     getReturnUrl();
 
-
   const mode =
     getMode();
 
-
   if (!returnUrl) {
 
-    document.getElementById(
-      "result"
-    ).innerHTML =
-
+    document.getElementById("result").innerHTML =
       '<span class="error">' +
       'Return URL tidak ditemukan.' +
       '</span>';
@@ -310,17 +205,9 @@ function returnToApp(
 
   }
 
+  if (!isAllowedReturnUrl(returnUrl)) {
 
-  if (
-    !isAllowedReturnUrl(
-      returnUrl
-    )
-  ) {
-
-    document.getElementById(
-      "result"
-    ).innerHTML =
-
+    document.getElementById("result").innerHTML =
       '<span class="error">' +
       'Return URL tidak diizinkan.' +
       '</span>';
@@ -329,20 +216,15 @@ function returnToApp(
 
   }
 
-
   try {
 
     const url =
-      new URL(
-        returnUrl
-      );
-
+      new URL(returnUrl);
 
     url.searchParams.set(
       "barcode",
       barcode
     );
-
 
     if (mode) {
 
@@ -353,19 +235,13 @@ function returnToApp(
 
     }
 
-
     window.location.replace(
       url.toString()
     );
 
-  }
+  } catch (error) {
 
-  catch (error) {
-
-    document.getElementById(
-      "result"
-    ).innerHTML =
-
+    document.getElementById("result").innerHTML =
       '<span class="error">' +
       'Gagal kembali ke aplikasi.' +
       '</span>';
@@ -375,9 +251,9 @@ function returnToApp(
 }
 
 
-// ========================================
+// ======================================
 // START CAMERA
-// ========================================
+// ======================================
 
 function startScanner() {
 
@@ -386,17 +262,13 @@ function startScanner() {
       "reader"
     );
 
-
   const config = {
 
     fps: 10,
 
     qrbox: {
-
       width: 280,
-
       height: 140
-
     }
 
   };
@@ -404,127 +276,85 @@ function startScanner() {
 
   scanner.start(
 
-    {
-      facingMode: {
-        ideal: "environment"
-      }
-    },
-
+    "environment",
 
     config,
 
-
     function(decodedText) {
 
-      if (
-        alreadyScanned
-      ) {
-
+      if (alreadyScanned) {
         return;
-
       }
 
-
-      alreadyScanned =
-        true;
+      alreadyScanned = true;
 
 
-      document.getElementById(
-        "result"
-      ).innerHTML =
-
+      document.getElementById("result").innerHTML =
         '<span class="success">' +
         '✓ Barcode terbaca: ' +
-        escapeHtml(
-          decodedText
-        ) +
+        escapeHtml(decodedText) +
         '</span>';
 
 
       scanner.stop()
 
-        .then(
-          function() {
+        .then(function() {
 
-            scanner.clear();
+          scanner.clear();
 
-            returnToApp(
-              decodedText
-            );
+          returnToApp(decodedText);
 
-          }
-        )
+        })
 
-        .catch(
-          function() {
+        .catch(function() {
 
-            returnToApp(
-              decodedText
-            );
+          returnToApp(decodedText);
 
-          }
-        );
+        });
 
     },
 
 
     function(errorMessage) {
 
-      // Tidak perlu menampilkan
-      // error scan terus-menerus
+      // Abaikan kesalahan scanning sementara
 
     }
 
   )
 
+  .catch(function(error) {
 
-  .catch(
-    function(error) {
+    document.getElementById("result").innerHTML =
+      '<span class="error">' +
+      'Kamera tidak dapat dibuka: ' +
+      escapeHtml(error) +
+      '</span>';
 
-      document.getElementById(
-        "result"
-      ).innerHTML =
-
-        '<span class="error">' +
-
-        'Kamera tidak dapat dibuka: ' +
-
-        escapeHtml(
-          error
-        ) +
-
-        '</span>';
-
-    }
-  );
+  });
 
 }
 
 
-// ========================================
-// GO BACK
-// ========================================
+// ======================================
+// KEMBALI
+// ======================================
 
 function goBack() {
 
   const returnUrl =
     getReturnUrl();
 
-
   if (
     returnUrl &&
-    isAllowedReturnUrl(
-      returnUrl
-    )
+    isAllowedReturnUrl(returnUrl)
   ) {
 
     window.location.replace(
       returnUrl
     );
 
-  }
-
-  else {
+  } else {
 
     window.history.back();
 
@@ -533,59 +363,34 @@ function goBack() {
 }
 
 
-// ========================================
+// ======================================
 // ESCAPE HTML
-// ========================================
+// ======================================
 
-function escapeHtml(
-  value
-) {
+function escapeHtml(value) {
 
-  return String(
-    value ?? ""
-  )
+  return String(value ?? "")
 
-    .replace(
-      /&/g,
-      "&amp;"
-    )
-
-    .replace(
-      /</g,
-      "&lt;"
-    )
-
-    .replace(
-      />/g,
-      "&gt;"
-    )
-
-    .replace(
-      /"/g,
-      "&quot;"
-    )
-
-    .replace(
-      /'/g,
-      "&#039;"
-    );
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 
 }
 
 
-// ========================================
+// ======================================
 // START
-// ========================================
+// ======================================
 
-window.onload =
-  function() {
+window.onload = function() {
 
-    startScanner();
+  startScanner();
 
-  };
+};
 
 </script>
-
 
 </body>
 
