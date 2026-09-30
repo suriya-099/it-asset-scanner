@@ -2,7 +2,6 @@
 <html lang="id">
 
 <head>
-
   <meta charset="UTF-8">
 
   <meta
@@ -63,6 +62,15 @@
       word-break: break-word;
     }
 
+    #cameraList {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      display: none;
+    }
+
     button {
       width: 100%;
       margin-top: 15px;
@@ -85,8 +93,11 @@
       font-weight: bold;
     }
 
-  </style>
+    .info {
+      color: #555;
+    }
 
+  </style>
 </head>
 
 <body>
@@ -100,13 +111,17 @@
   <div class="card">
 
     <p>
-      Arahkan kamera ke barcode Asset Tag.
+      Pilih kamera, kemudian arahkan ke barcode Asset Tag.
     </p>
+
+    <select id="cameraList">
+      <option value="">Memuat kamera...</option>
+    </select>
 
     <div id="reader"></div>
 
     <div id="result">
-      Mengaktifkan kamera...
+      Menyiapkan kamera...
     </div>
 
     <button onclick="goBack()">
@@ -121,11 +136,12 @@
 
 let scanner = null;
 let alreadyScanned = false;
+let currentCameraId = null;
 
 
-// ======================================
-// AMBIL RETURN URL
-// ======================================
+// =======================================
+// GET RETURN URL
+// =======================================
 
 function getReturnUrl() {
 
@@ -138,9 +154,9 @@ function getReturnUrl() {
 }
 
 
-// ======================================
-// MODE
-// ======================================
+// =======================================
+// GET MODE
+// =======================================
 
 function getMode() {
 
@@ -150,13 +166,12 @@ function getMode() {
     );
 
   return params.get("mode") || "";
-
 }
 
 
-// ======================================
-// VALIDASI RETURN URL
-// ======================================
+// =======================================
+// CHECK RETURN URL
+// =======================================
 
 function isAllowedReturnUrl(url) {
 
@@ -182,9 +197,9 @@ function isAllowedReturnUrl(url) {
 }
 
 
-// ======================================
-// KEMBALI KE APPS SCRIPT
-// ======================================
+// =======================================
+// RETURN TO APPS SCRIPT
+// =======================================
 
 function returnToApp(barcode) {
 
@@ -202,7 +217,6 @@ function returnToApp(barcode) {
       '</span>';
 
     return;
-
   }
 
   if (!isAllowedReturnUrl(returnUrl)) {
@@ -213,7 +227,6 @@ function returnToApp(barcode) {
       '</span>';
 
     return;
-
   }
 
   try {
@@ -251,32 +264,210 @@ function returnToApp(barcode) {
 }
 
 
-// ======================================
-// START CAMERA
-// ======================================
+// =======================================
+// LOAD CAMERAS
+// =======================================
 
-function startScanner() {
+function loadCameras() {
+
+  document.getElementById("result").innerHTML =
+    "Meminta izin kamera...";
+
+  Html5Qrcode.getCameras()
+
+    .then(function(cameras) {
+
+      const cameraList =
+        document.getElementById(
+          "cameraList"
+        );
+
+      cameraList.innerHTML = "";
+
+      if (
+        !cameras ||
+        cameras.length === 0
+      ) {
+
+        document.getElementById("result").innerHTML =
+          '<span class="error">' +
+          'Tidak ada kamera yang terdeteksi.' +
+          '</span>';
+
+        return;
+
+      }
+
+
+      // Tampilkan daftar kamera
+      cameras.forEach(function(camera, index) {
+
+        const option =
+          document.createElement(
+            "option"
+          );
+
+        option.value =
+          camera.id;
+
+        option.textContent =
+          camera.label ||
+          "Camera " + (index + 1);
+
+        cameraList.appendChild(
+          option
+        );
+
+      });
+
+
+      cameraList.style.display =
+        "block";
+
+
+      // Cari kamera belakang
+      let selectedCamera =
+        cameras.find(function(camera) {
+
+          const label =
+            (camera.label || "")
+              .toLowerCase();
+
+          return (
+            label.includes("back") ||
+            label.includes("rear") ||
+            label.includes("environment") ||
+            label.includes("belakang")
+          );
+
+        });
+
+
+      // Jika tidak ditemukan,
+      // gunakan kamera terakhir / pertama
+      if (!selectedCamera) {
+
+        selectedCamera =
+          cameras.length > 1
+            ? cameras[cameras.length - 1]
+            : cameras[0];
+
+      }
+
+
+      cameraList.value =
+        selectedCamera.id;
+
+      currentCameraId =
+        selectedCamera.id;
+
+
+      startScanner(
+        currentCameraId
+      );
+
+    })
+
+    .catch(function(error) {
+
+      document.getElementById("result").innerHTML =
+        '<span class="error">' +
+        'Tidak dapat mengakses kamera: ' +
+        escapeHtml(error) +
+        '</span>';
+
+    });
+
+}
+
+
+// =======================================
+// START SCANNER
+// =======================================
+
+function startScanner(cameraId) {
+
+  if (!cameraId) {
+
+    document.getElementById("result").innerHTML =
+      '<span class="error">' +
+      'Camera ID tidak ditemukan.' +
+      '</span>';
+
+    return;
+
+  }
+
+
+  // Jika scanner sedang berjalan,
+  // hentikan dulu
+  if (scanner) {
+
+    scanner.stop()
+      .then(function() {
+
+        scanner.clear();
+
+        createScanner(
+          cameraId
+        );
+
+      })
+      .catch(function() {
+
+        createScanner(
+          cameraId
+        );
+
+      });
+
+  } else {
+
+    createScanner(
+      cameraId
+    );
+
+  }
+
+}
+
+
+// =======================================
+// CREATE SCANNER
+// =======================================
+
+function createScanner(cameraId) {
+
+  alreadyScanned = false;
 
   scanner =
     new Html5Qrcode(
       "reader"
     );
 
+
   const config = {
 
     fps: 10,
 
     qrbox: {
+
       width: 280,
+
       height: 140
+
     }
 
   };
 
 
+  document.getElementById("result").innerHTML =
+    "Arahkan kamera ke barcode Asset Tag.";
+
+
   scanner.start(
 
-    "environment",
+    cameraId,
 
     config,
 
@@ -302,22 +493,25 @@ function startScanner() {
 
           scanner.clear();
 
-          returnToApp(decodedText);
+          returnToApp(
+            decodedText
+          );
 
         })
 
         .catch(function() {
 
-          returnToApp(decodedText);
+          returnToApp(
+            decodedText
+          );
 
         });
 
     },
 
-
     function(errorMessage) {
 
-      // Abaikan kesalahan scanning sementara
+      // Abaikan error scanning biasa
 
     }
 
@@ -327,7 +521,7 @@ function startScanner() {
 
     document.getElementById("result").innerHTML =
       '<span class="error">' +
-      'Kamera tidak dapat dibuka: ' +
+      'Gagal menjalankan kamera: ' +
       escapeHtml(error) +
       '</span>';
 
@@ -336,9 +530,33 @@ function startScanner() {
 }
 
 
-// ======================================
-// KEMBALI
-// ======================================
+// =======================================
+// CAMERA CHANGE
+// =======================================
+
+document
+  .getElementById("cameraList")
+  .addEventListener(
+    "change",
+    function() {
+
+      const newCameraId =
+        this.value;
+
+      currentCameraId =
+        newCameraId;
+
+      startScanner(
+        newCameraId
+      );
+
+    }
+  );
+
+
+// =======================================
+// BACK
+// =======================================
 
 function goBack() {
 
@@ -347,7 +565,9 @@ function goBack() {
 
   if (
     returnUrl &&
-    isAllowedReturnUrl(returnUrl)
+    isAllowedReturnUrl(
+      returnUrl
+    )
   ) {
 
     window.location.replace(
@@ -363,35 +583,54 @@ function goBack() {
 }
 
 
-// ======================================
+// =======================================
 // ESCAPE HTML
-// ======================================
+// =======================================
 
 function escapeHtml(value) {
 
   return String(value ?? "")
 
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+    .replace(
+      /&/g,
+      "&amp;"
+    )
+
+    .replace(
+      /</g,
+      "&lt;"
+    )
+
+    .replace(
+      />/g,
+      "&gt;"
+    )
+
+    .replace(
+      /"/g,
+      "&quot;"
+    )
+
+    .replace(
+      /'/g,
+      "&#039;"
+    );
 
 }
 
 
-// ======================================
+// =======================================
 // START
-// ======================================
+// =======================================
 
-window.onload = function() {
+window.onload =
+  function() {
 
-  startScanner();
+    loadCameras();
 
-};
+  };
 
 </script>
 
 </body>
-
 </html>
