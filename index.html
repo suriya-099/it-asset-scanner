@@ -1,41 +1,23 @@
 <!DOCTYPE html>
 <html lang="id">
-<head>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>IT Asset Barcode Scanner</title>
-<script src="https://unpkg.com/html5-qrcode"></script>
-<style>
-body{font-family:Arial;margin:0;padding:16px;background:#111827;color:#fff}
-.box{background:#1f2937;padding:14px;border-radius:8px;max-width:600px;margin:auto}
-#reader{width:100%}#result{margin-top:12px;padding:10px;background:#374151;border-radius:6px;word-break:break-all}
-button{padding:9px 12px;border:0;border-radius:5px;margin-top:10px}
-</style>
-</head>
-<body>
-<div class="box">
-<h2>Barcode Scanner</h2>
-<div id="reader"></div>
-<div id="result">Arahkan kamera ke barcode...</div>
-<button onclick="goBack()">Kembali</button>
-</div>
+<head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Asset Scanner</title><script src="https://unpkg.com/html5-qrcode"></script>
+<style>body{font-family:Arial;background:#111827;color:#fff;margin:0;padding:15px}.box{max-width:600px;margin:auto;background:#1f2937;padding:14px;border-radius:8px}#reader{width:100%}#result{margin-top:10px;padding:10px;background:#374151;border-radius:5px;word-break:break-all}button{margin-top:10px;padding:9px 12px;border:0;border-radius:5px}</style>
+</head><body><div class="box"><h2>Barcode Scanner</h2><div id="reader"></div><div id="result">Arahkan kamera ke barcode...</div><button onclick="back()">Kembali</button></div>
 <script>
-const mode=new URLSearchParams(location.search).get("mode")||"add";
-let scanner=null,stopped=false;
-function $(id){return document.getElementById(id)}
+const mode=new URLSearchParams(location.search).get("mode")||"add";let scanner=null,done=false;
+function back(){if(window.opener&&!window.opener.closed)window.close();else history.back()}
 function start(cameras){
-  if(!cameras.length){$("result").textContent="Kamera tidak ditemukan.";return}
-  const c=cameras.find(x=>/back|rear|environment|belakang/i.test(x.label))||cameras[cameras.length-1];
-  scanner=new Html5Qrcode("reader");
-  scanner.start(c.id,{fps:10,qrbox:{width:280,height:130}},decoded=>{
-    if(stopped)return;stopped=true;$("result").textContent="Barcode: "+decoded;
-    if(window.opener&&!window.opener.closed){
-      window.opener.postMessage({type:"ASSET_BARCODE",barcode:decoded,mode},"*");
-      scanner.stop().catch(()=>{}).finally(()=>setTimeout(()=>window.close(),700));
-    }else{$("result").textContent="Scanner dibuka tanpa aplikasi utama."}
-  },()=>{}).catch(err=>$("result").textContent="Gagal membuka kamera: "+err);
+ if(!cameras.length){$("result").textContent="Kamera tidak ditemukan.";return}
+ const cam=cameras.find(c=>/back|rear|environment|belakang/i.test(c.label))||cameras[cameras.length-1];
+ scanner=new Html5Qrcode("reader");
+ scanner.start(cam.id,{fps:10,qrbox:{width:280,height:130}},text=>{
+  if(done)return;done=true;$("result").textContent="Barcode: "+text;
+  if(window.opener&&!window.opener.closed){
+   window.opener.postMessage({type:"ASSET_BARCODE",barcode:text,mode:mode},"*");
+   scanner.stop().catch(()=>{}).finally(()=>setTimeout(()=>window.close(),700));
+  }else $("result").textContent="Scanner harus dibuka dari aplikasi IT Asset Management.";
+ },()=>{}).catch(e=>$("result").textContent="Gagal membuka kamera: "+e);
 }
-Html5Qrcode.getCameras().then(start).catch(err=>$("result").textContent="Tidak bisa mengakses kamera: "+err);
-function goBack(){if(window.opener&&!window.opener.closed)window.close();else history.back()}
-</script>
-</body>
-</html>
+function $(id){return document.getElementById(id)}
+Html5Qrcode.getCameras().then(start).catch(e=>$("result").textContent="Tidak bisa mengakses kamera: "+e);
+</script></body></html>
